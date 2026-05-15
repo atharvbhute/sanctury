@@ -1,0 +1,74 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile information and subscription status.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string", "description": "User's profile picture URL." },
+        "isPaid": { "type": "boolean", "description": "Gated access flag for premium content." },
+        "glowColor": { "type": "string", "description": "User's preferred glow color hex." }
+      },
+      "required": ["uid", "email"]
+    },
+    "UserProgress": {
+      "title": "User Progress",
+      "description": "Log of completed breathwork sessions.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "sessionName": { "type": "string" },
+        "duration": { "type": "number", "description": "Duration in seconds." },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "sessionName", "duration", "completedAt"]
+    },
+    "ShadowEntry": {
+      "title": "Shadow Lab Entry",
+      "description": "Journal entry for self-inquiry and trigger tracking.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "title": { "type": "string" },
+        "textContent": { "type": "string" },
+        "stateBefore": { "type": "string", "enum": ["Fight", "Flight", "Freeze", "Fawn"] },
+        "stateAfter": { "type": "string", "enum": ["Fight", "Flight", "Freeze", "Fawn"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "title", "textContent", "createdAt"]
+    },
+    "OTP": {
+      "title": "One-Time Password",
+      "description": "Temporary code for email authentication.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "otp": { "type": "string" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "otp", "expiresAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profile document."
+    },
+    "/user_progress/{progressId}": {
+      "schema": "UserProgress",
+      "description": "Breathwork session completion logs."
+    },
+    "/shadow_entries/{entryId}": {
+      "schema": "ShadowEntry",
+      "description": "User journal entries."
+    },
+    "/otps/{email}": {
+      "schema": "OTP",
+      "description": "Temporary OTP storage."
+    }
+  }
+}

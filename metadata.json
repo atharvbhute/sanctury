@@ -1,0 +1,5 @@
+{
+  "name": "Sanctuary",
+  "description": "A somatic recalibration app for neurological focus and emotional regulation.",
+  "requestFramePermissions": ["microphone"]
+}
