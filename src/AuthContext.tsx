@@ -27,7 +27,7 @@ interface AuthContextType {
   setTheme: (theme: { name: string, color: string, hex: string }) => void;
   showLoginModal: boolean;
   setShowLoginModal: (show: boolean) => void;
-  login: (email: string) => Promise<{ hasMapAccess: boolean }>;
+  login: (email: string, password?: string) => Promise<{ hasMapAccess: boolean }>;
   logout: () => Promise<void>;
 }
 
@@ -76,28 +76,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const ADMIN_EMAILS = ['ivikaskhandelwal@gmail.com', 'aditinirvaan@gmail.com', 'ishietachopra1@gmail.com', 'atharv.bhute18@gmail.com'];
 
-  const login = async (email: string) => {
+  const login = async (email: string, password?: string) => {
     const lowerEmail = email.toLowerCase().trim();
-    const isAdminUser = ADMIN_EMAILS.includes(lowerEmail);
 
-    let authUserData: any = null;
+    // Fetch backend url from VITE_API_URL or fallback
+    const apiUrl = ((import.meta as any).env?.VITE_API_URL || 'https://anlms-backend-three.vercel.app/api').trim().replace(/\/+$/, '') + '/';
 
-    if (isAdminUser) {
-      authUserData = { hasMapAccess: true, isAdmin: true };
-    } else {
-      // Check authorized_users collection
-      const authUserRef = doc(db, 'authorized_users', lowerEmail);
-      const authUserSnap = await getDoc(authUserRef);
-      
-      if (!authUserSnap.exists()) {
-        throw new Error('Access Denied. This email is not on the Sanctuary whitelist.');
+    let resData: any;
+    try {
+      const response = await fetch(`${apiUrl}users/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: lowerEmail, password, rememberMe: true })
+      });
+
+      const text = await response.text();
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        throw new Error('Server returned an invalid response.');
       }
-      authUserData = authUserSnap.data();
+
+      if (!response.ok) {
+        throw new Error(parsed?.message || 'Invalid email or password');
+      }
+
+      resData = parsed.data;
+    } catch (err: any) {
+      console.error('ANLMS Login Error:', err);
+      throw new Error(err.message || 'Login failed. Please check your credentials.');
+    }
+
+    const { token, user } = resData;
+
+    // Check sanctuary access flag
+    if (!user.hasSancturyAccess) {
+      throw new Error("You don't have access, please connect with a team");
     }
     
-    // Set local state and session ID
+    // Set local state, session ID, and LMS token
     const sessionId = Math.random().toString(36).substring(2, 15);
     localStorage.setItem('sanctuary-session-id', sessionId);
+    localStorage.setItem('sanctuary-lms-token', token);
     
     // Create/Update user profile and store session ID
     const userDocRef = doc(db, 'users', lowerEmail);
@@ -105,25 +128,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!docSnap.exists()) {
       const newProfile: UserProfile = {
         email: lowerEmail,
-        displayName: '',
-        photoURL: '',
-        isPaid: false,
+        displayName: user.name || '',
+        photoURL: user.avatar || '',
+        isPaid: true,
         glowColor: activeTheme.color,
-        hasMapAccess: authUserData.hasMapAccess || false,
-        isAdmin: !!authUserData.isAdmin,
+        hasMapAccess: true,
+        isAdmin: false,
       };
       await setDoc(userDocRef, { ...newProfile, sessionId }).catch(e => handleFirestoreError(e, OperationType.WRITE, `users/${lowerEmail}`));
     } else {
-      await updateDoc(userDocRef, { ...docSnap.data(), sessionId }).catch(e => handleFirestoreError(e, OperationType.WRITE, `users/${lowerEmail}`));
+      await updateDoc(userDocRef, { 
+        sessionId,
+        displayName: user.name || docSnap.data().displayName || '',
+        photoURL: user.avatar || docSnap.data().photoURL || '',
+        hasMapAccess: true,
+      }).catch(e => handleFirestoreError(e, OperationType.WRITE, `users/${lowerEmail}`));
     }
     
     // Set local state
     setIsLoggedIn(true);
-    setIsAdmin(!!authUserData.isAdmin);
+    setIsAdmin(false);
     setUserEmail(lowerEmail);
     localStorage.setItem('sanctuary-user-email', lowerEmail);
     
-    return { hasMapAccess: authUserData.hasMapAccess || false };
+    return { hasMapAccess: true };
   };
 
   const logout = async () => {
@@ -151,7 +179,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       getDoc(userDocRef).then(docSnap => {
         if (docSnap.exists() && docSnap.data().sessionId === savedSessionId) {
           setIsLoggedIn(true);
-          setIsAdmin(ADMIN_EMAILS.includes(savedEmail));
+          setIsAdmin(false);
         } else {
           // Session invalid, logout
           localStorage.removeItem('sanctuary-user-email');
