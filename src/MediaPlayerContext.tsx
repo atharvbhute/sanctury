@@ -1,7 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, OperationType, handleFirestoreError } from './firebase';
 
 interface MediaPlayerContextType {
   isPlaying: boolean;
@@ -11,8 +9,8 @@ interface MediaPlayerContextType {
   repeat: boolean;
   error: string | null;
   isLoading: boolean;
-  play: (track: string) => void;
-  load: (track: string) => void;
+  play: (track: string, customUrl?: string) => void;
+  load: (track: string, customUrl?: string) => void;
   pause: () => void;
   stop: () => void;
   reset: () => void;
@@ -29,7 +27,7 @@ export const useMediaPlayer = () => {
 };
 
 export const MediaPlayerProvider = ({ children }: { children: ReactNode }) => {
-  const { user } = useAuth();
+  const { isLoggedIn, userEmail } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(420); // 7 minutes default
@@ -97,20 +95,31 @@ export const MediaPlayerProvider = ({ children }: { children: ReactNode }) => {
   }, [repeat]); // Only re-bind if repeat logic changes, not on every track
 
   const logSession = async () => {
-    if (!user || !currentTrack) return;
+    if (!isLoggedIn || !userEmail || !currentTrack) return;
     try {
-      await addDoc(collection(db, 'user_progress'), {
-        uid: user.uid,
-        sessionName: currentTrack,
-        duration: currentTime,
-        completedAt: serverTimestamp(),
+      const token = localStorage.getItem('sanctuary-lms-token');
+      if (!token) return;
+
+      const res = await fetch('/api/user-progress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          sessionName: currentTrack,
+          duration: currentTime
+        })
       });
+      if (!res.ok) {
+        throw new Error('Failed to save session progress');
+      }
     } catch (e) {
-      handleFirestoreError(e, OperationType.CREATE, 'user_progress');
+      console.error('Error logging reset session progress:', e);
     }
   };
 
-  const load = async (track: string) => {
+  const load = async (track: string, customUrl?: string) => {
     if (!audioRef.current) return;
     setError(null);
     
@@ -118,9 +127,9 @@ export const MediaPlayerProvider = ({ children }: { children: ReactNode }) => {
       if (currentTrack !== track) {
         setIsLoading(true);
         setCurrentTrack(track);
-        const trackUrl = track === '7-Minute Reset' 
+        const trackUrl = customUrl || (track === '7-Minute Reset' 
           ? 'https://dl.dropboxusercontent.com/scl/fi/q49e11bcossocishmcyi1/NeruoSomatic-Breathwork-By-Aditi-Nirvaan-TM.mp3?rlkey=6celm54yag5tiz0hvtpna4faq&raw=1' 
-          : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3';
+          : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3');
         
         audioRef.current.src = trackUrl;
         audioRef.current.crossOrigin = 'anonymous';
@@ -153,13 +162,13 @@ export const MediaPlayerProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const play = async (track: string) => {
+  const play = async (track: string, customUrl?: string) => {
     if (!audioRef.current) return;
     setError(null);
     
     try {
       if (currentTrack !== track) {
-        await load(track);
+        await load(track, customUrl);
       }
       
       playPromiseRef.current = audioRef.current.play();

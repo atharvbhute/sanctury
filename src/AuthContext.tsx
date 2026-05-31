@@ -1,10 +1,4 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { doc, onSnapshot, setDoc, updateDoc, getDoc, getDocs, query, where, collection } from 'firebase/firestore';
-import { 
-  db, 
-  OperationType, 
-  handleFirestoreError
-} from './firebase';
 
 interface UserProfile {
   email: string;
@@ -29,6 +23,9 @@ interface AuthContextType {
   setShowLoginModal: (show: boolean) => void;
   login: (email: string, password?: string) => Promise<{ hasMapAccess: boolean }>;
   logout: () => Promise<void>;
+  updateProfile: (updates: { displayName?: string, photoURL?: string, glowColor?: string }) => Promise<any>;
+  isResetRegistered: boolean;
+  setIsResetRegistered: (registered: boolean) => void;
 }
 
 const THEMES = {
@@ -45,11 +42,14 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isAuthReady: false,
   activeTheme: THEMES.GROUNDED,
-  setTheme: () => {},
+  setTheme: () => { },
   showLoginModal: false,
-  setShowLoginModal: () => {},
+  setShowLoginModal: () => { },
   login: async () => ({ hasMapAccess: false }),
-  logout: async () => {},
+  logout: async () => { },
+  updateProfile: async () => null,
+  isResetRegistered: false,
+  setIsResetRegistered: () => { },
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -62,6 +62,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isResetRegistered, setIsResetRegistered] = useState(false);
+
+  useEffect(() => {
+    if (userEmail) {
+      localStorage.setItem(`sanctuary-reset-registered-${userEmail}`, isResetRegistered ? 'true' : 'false');
+    }
+  }, [isResetRegistered, userEmail]);
+
+  useEffect(() => {
+    const checkRegistration = async () => {
+      if (!userEmail) {
+        setIsResetRegistered(false);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/reset-registration/check?email=${encodeURIComponent(userEmail)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setIsResetRegistered(!!data.registered);
+        } else {
+          setIsResetRegistered(false);
+        }
+      } catch (e) {
+        console.error('Failed to check reset registration status:', e);
+        setIsResetRegistered(false);
+      }
+    };
+    checkRegistration();
+  }, [userEmail]);
+
   const [activeTheme, setActiveTheme] = useState(() => {
     const saved = localStorage.getItem('sanctuary-theme');
     return saved ? JSON.parse(saved) : THEMES.GROUNDED;
@@ -73,8 +103,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     document.documentElement.style.setProperty('--glow-color', theme.color);
     document.documentElement.style.setProperty('--theme-hex', theme.hex);
   };
-
-  const ADMIN_EMAILS = ['ivikaskhandelwal@gmail.com', 'aditinirvaan@gmail.com', 'ishietachopra1@gmail.com', 'atharv.bhute18@gmail.com'];
 
   const login = async (email: string, password?: string) => {
     const lowerEmail = email.toLowerCase().trim();
@@ -112,46 +140,105 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { token, user } = resData;
 
-    // Check sanctuary access flag
-    if (!user.hasSancturyAccess) {
-      throw new Error("You don't have access, please connect with a team");
+    // Check sanctuary access: verify enrollment in Shadow Mastery Coaching courses
+    const SHADOW_MASTERY_COURSE_IDS = ['69aaa6a2cf49b8e4901b2b5c', '69aea4a8b2973eb1ea255770'];
+    const isAdminOrCoach = user.role === 'ADMIN' || user.role === 'COACH';
+
+    if (!isAdminOrCoach) {
+      try {
+        const dashboardRes = await fetch(`${apiUrl}student/dashboard`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (dashboardRes.ok) {
+          const dashboardData = await dashboardRes.json();
+          const enrolledCourses = dashboardData?.data?.courses || [];
+          const hasShadowMastery = enrolledCourses.some(
+            (course: any) => SHADOW_MASTERY_COURSE_IDS.includes(course.id)
+          );
+
+          if (!hasShadowMastery) {
+            throw new Error("Access denied as you don't have the Shadow Mastery course. Please enroll first.");
+          }
+        } else {
+          // If dashboard fetch fails, fall back to the hasSancturyAccess flag
+          if (!user.hasSancturyAccess) {
+            throw new Error("Access denied as you don't have the Shadow Mastery course. Please enroll first.");
+          }
+        }
+      } catch (enrollErr: any) {
+        // Re-throw access denied errors
+        if (enrollErr.message.includes('Access denied')) {
+          throw enrollErr;
+        }
+        // For network errors, fall back to the hasSancturyAccess flag
+        if (!user.hasSancturyAccess) {
+          throw new Error("Access denied as you don't have the Shadow Mastery course. Please enroll first.");
+        }
+      }
     }
-    
+
     // Set local state, session ID, and LMS token
     const sessionId = Math.random().toString(36).substring(2, 15);
     localStorage.setItem('sanctuary-session-id', sessionId);
     localStorage.setItem('sanctuary-lms-token', token);
-    
-    // Create/Update user profile and store session ID
-    const userDocRef = doc(db, 'users', lowerEmail);
-    const docSnap = await getDoc(userDocRef);
-    if (!docSnap.exists()) {
-      const newProfile: UserProfile = {
-        email: lowerEmail,
-        displayName: user.name || '',
-        photoURL: user.avatar || '',
-        isPaid: true,
-        glowColor: activeTheme.color,
-        hasMapAccess: true,
-        isAdmin: false,
-      };
-      await setDoc(userDocRef, { ...newProfile, sessionId }).catch(e => handleFirestoreError(e, OperationType.WRITE, `users/${lowerEmail}`));
-    } else {
-      await updateDoc(userDocRef, { 
-        sessionId,
-        displayName: user.name || docSnap.data().displayName || '',
-        photoURL: user.avatar || docSnap.data().photoURL || '',
-        hasMapAccess: true,
-      }).catch(e => handleFirestoreError(e, OperationType.WRITE, `users/${lowerEmail}`));
+
+    // Create/Update user profile in Sanctuary MongoDB via API
+    try {
+      const profileRes = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          displayName: user.name || '',
+          photoURL: user.avatar || '',
+          glowColor: activeTheme.color
+        })
+      });
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        setProfile(profileData.data);
+      }
+    } catch (e) {
+      console.error('Failed to create/update profile via API:', e);
     }
-    
+
     // Set local state
     setIsLoggedIn(true);
     setIsAdmin(false);
     setUserEmail(lowerEmail);
     localStorage.setItem('sanctuary-user-email', lowerEmail);
-    
+
     return { hasMapAccess: true };
+  };
+
+  const updateProfile = async (updates: { displayName?: string, photoURL?: string, glowColor?: string }) => {
+    if (!userEmail) return;
+    try {
+      const token = localStorage.getItem('sanctuary-lms-token');
+      if (!token) return;
+      const res = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updates)
+      });
+      if (res.ok) {
+        const resData = await res.json();
+        setProfile(resData.data);
+        return resData.data;
+      }
+    } catch (err) {
+      console.error('Failed to update profile via API:', err);
+    }
   };
 
   const logout = async () => {
@@ -159,34 +246,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAdmin(false);
     setUserEmail(null);
     setProfile(null);
+    setIsResetRegistered(false);
     localStorage.removeItem('sanctuary-user-email');
     localStorage.removeItem('sanctuary-session-id');
+    localStorage.removeItem('sanctuary-lms-token');
+  };
+
+  const fetchProfile = async () => {
+    if (!userEmail) return;
+    try {
+      const token = localStorage.getItem('sanctuary-lms-token');
+      if (!token) return;
+      const res = await fetch('/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const resData = await res.json();
+        setProfile(resData.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch profile via API:', err);
+    }
   };
 
   useEffect(() => {
     // Apply initial theme to CSS variables
     document.documentElement.style.setProperty('--glow-color', activeTheme.color);
     document.documentElement.style.setProperty('--theme-hex', activeTheme.hex);
-    
+
     // Load local session
     const savedEmail = localStorage.getItem('sanctuary-user-email');
-    const savedSessionId = localStorage.getItem('sanctuary-session-id');
     if (savedEmail) {
       setUserEmail(savedEmail);
-      
-      // Verify session
-      const userDocRef = doc(db, 'users', savedEmail);
-      getDoc(userDocRef).then(docSnap => {
-        if (docSnap.exists() && docSnap.data().sessionId === savedSessionId) {
-          setIsLoggedIn(true);
-          setIsAdmin(false);
-        } else {
-          // Session invalid, logout
-          localStorage.removeItem('sanctuary-user-email');
-          localStorage.removeItem('sanctuary-session-id');
-          setIsLoggedIn(false);
-        }
-      });
+      setIsLoggedIn(true);
+      setIsAdmin(false);
+      const savedReg = localStorage.getItem(`sanctuary-reset-registered-${savedEmail}`) === 'true';
+      setIsResetRegistered(savedReg);
+    } else {
+      setIsLoggedIn(false);
+      setIsResetRegistered(false);
     }
     setIsAuthReady(true);
     setLoading(false);
@@ -194,43 +294,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (userEmail) {
-      const userDocRef = doc(db, 'users', userEmail);
-      
-      try {
-        const unsubProfile = onSnapshot(userDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data() as UserProfile;
-            setProfile(data);
-          } else {
-            setProfile(null);
-          }
-        }, (error) => {
-          handleFirestoreError(error, OperationType.GET, `users/${userEmail}`);
-        });
-        
-        return () => unsubProfile();
-      } catch (error) {
-        handleFirestoreError(error, OperationType.GET, `users/${userEmail}`);
-      }
+      fetchProfile();
     } else {
       setProfile(null);
     }
   }, [userEmail]);
 
   return (
-    <AuthContext.Provider value={{ 
+    <AuthContext.Provider value={{
       isLoggedIn,
       isAdmin,
       userEmail,
-      profile, 
-      loading, 
-      isAuthReady, 
+      profile,
+      loading,
+      isAuthReady,
       activeTheme,
       setTheme,
       showLoginModal,
       setShowLoginModal,
       login,
-      logout
+      logout,
+      updateProfile,
+      isResetRegistered,
+      setIsResetRegistered
     }}>
       {children}
     </AuthContext.Provider>

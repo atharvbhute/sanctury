@@ -15,7 +15,7 @@ export default defineConfig(({mode}) => {
         devOptions: {
           enabled: true
         },
-        includeAssets: ['icon.png'],
+        includeAssets: ['icon.svg', 'icon.png'],
         manifest: {
           name: 'Sanctuary',
           short_name: 'Sanctuary',
@@ -26,6 +26,18 @@ export default defineConfig(({mode}) => {
           display: 'standalone',
           orientation: 'portrait',
           icons: [
+            {
+              src: '/icon.svg',
+              sizes: '192x192 512x512',
+              type: 'image/svg+xml',
+              purpose: 'any'
+            },
+            {
+              src: '/icon.svg',
+              sizes: '512x512',
+              type: 'image/svg+xml',
+              purpose: 'maskable'
+            },
             {
               src: '/icon.png',
               sizes: '192x192',

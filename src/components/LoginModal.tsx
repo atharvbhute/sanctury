@@ -42,6 +42,11 @@ export const LoginModal = ({ isOpen, onClose, onOpenLegal }: LoginModalProps) =>
         </button>
 
         <div className="text-center space-y-2 mb-8">
+          <img 
+            src="/navlogo.png" 
+            alt="Aditi Nirvaan Sanctuary" 
+            className="h-10 w-auto mx-auto object-contain mb-4"
+          />
           <h3 className="font-sans font-medium text-xl text-gray-900">Sanctuary Login</h3>
           <p className="font-sans text-sm text-gray-500">Enter your email to access Sanctuary.</p>
         </div>
@@ -94,7 +99,7 @@ export const LoginModal = ({ isOpen, onClose, onOpenLegal }: LoginModalProps) =>
           <button
             type="submit"
             disabled={loading || !acceptedTerms}
-            className="w-full bg-primary text-on-primary rounded-2xl py-4 font-label font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
+            className="w-full btn-aura-gradient rounded-2xl py-4 font-label font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
           >
             {loading ? 'Processing...' : 'Login'}
             {!loading && <ArrowRight size={18} />}

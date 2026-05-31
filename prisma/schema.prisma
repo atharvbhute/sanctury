@@ -1,0 +1,52 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model UserProfile {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  email        String   @unique
+  displayName  String?
+  photoURL     String?
+  glowColor    String?
+  hasMapAccess Boolean  @default(true)
+  isAdmin      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Journal {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userEmail   String
+  title       String
+  textContent String
+  stateBefore String?
+  stateAfter  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userEmail, createdAt])
+}
+
+model UserProgress {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userEmail   String
+  sessionName String
+  duration    Float
+  completedAt DateTime @default(now())
+
+  @@index([userEmail, completedAt])
+}
+
+model ResetRegistration {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  name      String
+  phone     String
+  createdAt DateTime @default(now())
+}
+

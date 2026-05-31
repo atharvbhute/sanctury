@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from './AuthContext';
 import { useMediaPlayer } from './MediaPlayerContext';
@@ -10,17 +10,18 @@ import { LegalPage } from './components/LegalPage';
 import { ProfileModal } from './components/ProfileModal';
 import { AnalyticsModals } from './components/AnalyticsModals';
 import { LoginModal } from './components/LoginModal';
+import { ResetRegisterModal } from './components/ResetRegisterModal';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db, OperationType, handleFirestoreError, sendEmailVerification } from './firebase';
-import { 
-  Menu, 
-  Wind, 
-  Activity, 
-  Brain, 
-  Quote, 
-  RotateCcw, 
-  Volume2, 
-  Sunset, 
+import {
+  Menu,
+  Wind,
+  Activity,
+  Brain,
+  Quote,
+  RotateCcw,
+  Volume2,
+  Sunset,
   Map as MapIcon,
   Lock,
   ExternalLink,
@@ -35,15 +36,43 @@ import {
   Users,
   Heart,
   X,
-  Download
+  Download,
+  ArrowRight
 } from 'lucide-react';
 
+async function checkQuizCompletion(email: string): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `https://aditinirvaan.com/api/shadow-mastery/check?email=${encodeURIComponent(email)}`,
+      {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+
+    const data = await response.json();
+
+    // This will be true or false!
+    return data.completed === true;
+  } catch (error) {
+    console.error('Error checking quiz completion:', error);
+    return false; // Safely fall back to false if the check fails
+  }
+}
+
 export default function App() {
-  const { isLoggedIn, isAdmin, userEmail, profile, loading, activeTheme, setTheme, showLoginModal, setShowLoginModal } = useAuth();
+  const { isLoggedIn, isAdmin, userEmail, profile, loading, activeTheme, setTheme, showLoginModal, setShowLoginModal, updateProfile, isResetRegistered, login } = useAuth();
   const { play, load, currentTrack, stop } = useMediaPlayer();
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLegalOpen, setIsLegalOpen] = useState(false);
+  const [showResetRegisterModal, setShowResetRegisterModal] = useState(false);
   const [activeTab, setActiveTab] = useState('reset');
   const [showGatedPrompt, setShowGatedPrompt] = useState(false);
   const [isShadowDirty, setIsShadowDirty] = useState(false);
@@ -51,8 +80,38 @@ export default function App() {
   const [analyticsType, setAnalyticsType] = useState<'daily' | 'vagal' | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [isCheckingQuiz, setIsCheckingQuiz] = useState(false);
+
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  const handleInlineLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    setLoginError(null);
+    try {
+      await login(loginEmail, loginPassword);
+    } catch (err: any) {
+      setLoginError(err.message || 'Failed to login. Please try again.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
 
   useEffect(() => {
+    // Check if already running as installed PWA (standalone mode)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || (window.navigator as any).standalone === true; // iOS Safari
+    if (isStandalone) {
+      setIsAppInstalled(true);
+      setShowInstallButton(false);
+      return;
+    }
+
     const handleBeforeInstallPrompt = (e: any) => {
       // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
@@ -62,25 +121,34 @@ export default function App() {
       setShowInstallButton(true);
     };
 
+    const handleAppInstalled = () => {
+      // User installed the app — hide all install prompts
+      setIsAppInstalled(true);
+      setShowInstallButton(false);
+      setDeferredPrompt(null);
+    };
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
-    
+
     // Show the install prompt
     deferredPrompt.prompt();
-    
+
     // Wait for the user to respond to the prompt
     const { outcome } = await deferredPrompt.userChoice;
-    
+
     // Optionally, send analytics event with outcome of user choice
     console.log(`User response to the install prompt: ${outcome}`);
-    
+
     // We've used the prompt, and can't use it again, throw it away
     setDeferredPrompt(null);
     setShowInstallButton(false);
@@ -116,15 +184,21 @@ export default function App() {
     setTheme(theme);
     if (isLoggedIn && userEmail) {
       try {
-        await updateDoc(doc(db, 'users', userEmail), { glowColor: theme.color });
+        await updateProfile({ glowColor: theme.color });
       } catch (e) {
-        handleFirestoreError(e, OperationType.UPDATE, `users/${userEmail}`);
+        console.error('Failed to save glowColor to profile:', e);
       }
     }
   };
 
   const handleTabChange = (tabId: string) => {
     stop(); // Stop audio on tab switch
+    if (tabId === 'reset' && !isResetRegistered) {
+      setShowResetRegisterModal(true);
+      setActiveTab('reset');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
     if (tabId === 'map' && !isLoggedIn) {
       setShowLoginModal(true);
       return;
@@ -142,17 +216,78 @@ export default function App() {
     }
   };
 
-  const handleMapClick = () => {
-    if (profile?.hasMapAccess || isAdmin) {
-      setActiveTab('map');
-    } else {
-      setShowGatedPrompt(true);
+  const handleMapClick = async () => {
+    if (!userEmail) return;
+    setIsCheckingQuiz(true);
+    try {
+      const completed = await checkQuizCompletion(userEmail);
+      if (completed) {
+        window.location.href = "https://www.aditinirvaan.com/destiny-map-pattern-decoder";
+      } else {
+        window.location.href = "https://www.aditinirvaan.com/destiny-map";
+      }
+    } catch (err) {
+      console.error('Quiz completion check failed, falling back to landing page:', err);
+      window.location.href = "https://www.aditinirvaan.com/destiny-map";
+    } finally {
+      setIsCheckingQuiz(false);
     }
   };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'reset':
+        if (!isResetRegistered) {
+          return (
+            <section className="relative flex flex-col items-center justify-center w-full min-h-[60vh] text-center p-8 bg-white/40 backdrop-blur-xl rounded-3xl border border-outline-variant/10 shadow-2xl space-y-8 overflow-hidden">
+              {/* Background Glow - Localized behind the card */}
+              <div
+                className="absolute inset-0 blur-[120px] rounded-full scale-90 pointer-events-none transition-colors duration-1000 opacity-30 -z-10 animate-pulse"
+                style={{ backgroundColor: activeTheme.color }}
+              />
+
+              <motion.div
+                animate={{
+                  scale: [1, 1.05, 1],
+                  boxShadow: [
+                    `0 0 20px ${activeTheme.color}22`,
+                    `0 0 50px ${activeTheme.color}55`,
+                    `0 0 20px ${activeTheme.color}22`
+                  ]
+                }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="w-24 h-24 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center border border-primary/20 shadow-xl"
+                style={{ color: activeTheme.hex }}
+              >
+                <Lock size={40} className="stroke-[1.5]" />
+              </motion.div>
+
+              <div className="space-y-3 max-w-sm mx-auto z-10">
+                <img
+                  src="/navlogo.png"
+                  alt="Aditi Nirvaan Sanctuary"
+                  className="h-12 w-auto mx-auto object-contain mb-4"
+                />
+                <h3 className="font-headline text-2xl font-bold text-gray-900 mt-4">Unlock 7-Minute Reset™</h3>
+                <p className="font-body text-xs text-gray-500 leading-relaxed">
+                  Experience our signature somatic NeuroBreath™ recalibration. Complete your quick registration to permanently unlock this session on your account.
+                </p>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setShowResetRegisterModal(true)}
+                className="relative z-10 w-full max-w-[280px] py-4 rounded-2xl font-label font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary/20 hover:shadow-primary/30 text-white"
+                style={{ backgroundColor: activeTheme.hex }}
+              >
+                <span>Register & Unlock</span>
+                <ArrowRight size={18} />
+              </motion.button>
+            </section>
+          );
+        }
+
         return (
           <section className="relative flex flex-col items-center w-full min-h-[60vh] justify-center bg-white">
             <motion.button
@@ -169,14 +304,14 @@ export default function App() {
               className="relative z-10 w-72 h-72 rounded-full nano-banana-pro clay-shadow flex items-center justify-center group"
             >
               {/* Background Glow - Localized behind the button */}
-              <div 
-                className="absolute inset-0 blur-[100px] rounded-full scale-150 pointer-events-none transition-colors duration-1000 opacity-40 -z-10" 
+              <div
+                className="absolute inset-0 blur-[100px] rounded-full scale-150 pointer-events-none transition-colors duration-1000 opacity-40 -z-10"
                 style={{ backgroundColor: activeTheme.color }}
               />
-              
+
               {/* Ripple Effect in Chosen Color */}
-              <motion.div 
-                animate={{ 
+              <motion.div
+                animate={{
                   scale: [1, 1.25, 1],
                   opacity: [0.1, 0.4, 0.1],
                   boxShadow: `0 0 80px ${activeTheme.color}`
@@ -184,15 +319,17 @@ export default function App() {
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 className="absolute inset-0 rounded-full pointer-events-none"
               />
-              
-              <div 
-                className="absolute inset-6 rounded-full border-2 transition-colors duration-500" 
+
+              <div
+                className="absolute inset-6 rounded-full border-2 transition-colors duration-500"
                 style={{ borderColor: activeTheme.hex + '33' }} // 20% opacity
               />
               <div className="text-center px-10 flex flex-col items-center space-y-3">
                 <Wind className="text-primary text-5xl" style={{ color: activeTheme.hex }} />
                 <div className="space-y-1">
-                  <span className="font-headline text-2xl font-semibold leading-tight block" style={{ color: activeTheme.hex }}>7-Minute Reset</span>
+                  <span className="font-headline text-2xl font-semibold leading-tight block" style={{ color: activeTheme.hex }}>
+                    7-Minute Reset
+                  </span>
                   <span className="font-label text-[11px] uppercase tracking-[0.25em] text-on-surface-variant/50">NeuroBreath™</span>
                 </div>
                 <span className="font-label text-[9px] uppercase tracking-widest mt-2" style={{ color: activeTheme.hex + '99' }}>Tap to Begin</span>
@@ -202,12 +339,12 @@ export default function App() {
             <div className="mt-10 flex items-center space-y-2 flex-col">
               <div className="flex items-center gap-3 py-2 px-4 rounded-full bg-surface-container/30 border border-outline-variant/10">
                 <span className="relative flex h-2 w-2">
-                  <span 
-                    className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-40" 
+                  <span
+                    className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-40"
                     style={{ backgroundColor: activeTheme.hex }}
                   />
-                  <span 
-                    className="relative inline-flex rounded-full h-2 w-2" 
+                  <span
+                    className="relative inline-flex rounded-full h-2 w-2"
                     style={{ backgroundColor: activeTheme.hex }}
                   />
                 </span>
@@ -245,8 +382,8 @@ export default function App() {
                 { id: 'daily', title: 'Daily Flow', desc: 'Personalized neurological recalibration.', icon: Activity },
                 { id: 'vagal', title: 'Vagal Tone', desc: 'Quantified monitoring of parasympathetic shift.', icon: Brain }
               ].map((item) => (
-                <button 
-                  key={item.title} 
+                <button
+                  key={item.title}
                   onClick={() => setAnalyticsType(item.id as any)}
                   className="bg-white border border-outline-variant/10 p-5 rounded-2xl space-y-4 transition-all hover:bg-surface-container-high hover:border-outline-variant/30 cursor-pointer group text-left shadow-sm"
                 >
@@ -264,22 +401,30 @@ export default function App() {
         );
       case 'sounds':
         return (
-          <SoundsPage 
-            onOpenPlayer={(track) => { 
+          <SoundsPage
+            onOpenPlayer={(track) => {
               if (!isLoggedIn) {
                 setShowLoginModal(true);
                 return;
               }
-              load(track); 
-              setIsPlayerOpen(true); 
-            }} 
+              load(track);
+              setIsPlayerOpen(true);
+            }}
           />
         );
       case 'shadow':
         return (
-          <ShadowLabPage 
-            onDirtyChange={setIsShadowDirty} 
+          <ShadowLabPage
+            onDirtyChange={setIsShadowDirty}
             onAuthTrigger={() => setShowLoginModal(true)}
+            onOpenPlayer={(trackName, trackUrl) => {
+              if (!isLoggedIn) {
+                setShowLoginModal(true);
+                return;
+              }
+              load(trackName, trackUrl);
+              setIsPlayerOpen(true);
+            }}
           />
         );
       case 'map':
@@ -337,9 +482,9 @@ export default function App() {
     }
   };
 
-  if (loading) {
+  if (loading || isCheckingQuiz) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center relative">
         <motion.div
           animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -347,6 +492,118 @@ export default function App() {
         >
           <Wind className="text-primary" size={32} />
         </motion.div>
+        {isCheckingQuiz && (
+          <p className="absolute bottom-24 font-label text-[10px] uppercase tracking-widest text-outline animate-pulse">
+            Accessing Destiny Map...
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col justify-center items-center p-6">
+        <div className="w-full max-w-sm bg-white rounded-3xl p-8 border border-outline-variant/10 shadow-2xl space-y-6">
+          <div className="text-center space-y-2">
+            <img
+              src="/navlogo.png"
+              alt="Aditi Nirvaan Sanctuary"
+              className="h-12 w-auto mx-auto object-contain mb-4"
+            />
+            <h3 className="font-sans font-medium text-xl text-gray-900 mt-6 block">Welcome to Sanctuary</h3>
+            <p className="font-sans text-xs text-gray-500">Please log in with your ANLMS credentials to enter.</p>
+          </div>
+
+          <form onSubmit={handleInlineLogin} className="space-y-4">
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="Email Address"
+                required
+                className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 pl-12 pr-4 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-sans"
+              />
+            </div>
+
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="Password"
+                required
+                className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 pl-12 pr-4 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-sans"
+              />
+            </div>
+
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="inline-terms"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-1"
+              />
+              <label htmlFor="inline-terms" className="text-xs text-gray-600 font-sans leading-relaxed">
+                I agree to the <button type="button" onClick={() => setIsLegalOpen(true)} className="text-primary underline">Terms of Service</button> and have read the <button type="button" onClick={() => setIsLegalOpen(true)} className="text-primary underline">Professional Disclaimer</button>.
+              </label>
+            </div>
+
+            {loginError && (
+              <div className="flex items-center gap-2 text-red-600 text-xs font-sans px-3 bg-red-50 py-2 rounded-lg">
+                <AlertCircle size={14} />
+                <p>{loginError}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loginLoading || !acceptedTerms}
+              className="w-full btn-aura-gradient rounded-2xl py-4 font-label font-bold uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              {loginLoading ? 'Processing...' : 'Login'}
+              {!loginLoading && <ArrowRight size={18} />}
+            </button>
+          </form>
+
+          {/* PWA Install Prompt — only shown when not already installed */}
+          {showInstallButton && !isAppInstalled && (
+            <button
+              onClick={handleInstallClick}
+              className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl border border-dashed border-gray-300 bg-gray-50/60 hover:bg-gray-100 hover:border-gray-400 transition-all group"
+            >
+              <Download size={16} className="text-gray-500 group-hover:text-gray-700 transition-colors" />
+              <span className="font-sans text-xs text-gray-600 group-hover:text-gray-800 font-medium transition-colors">
+                Install Sanctuary on your device
+              </span>
+            </button>
+          )}
+        </div>
+
+        <AnimatePresence>
+          {isLegalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[1000000] bg-background flex flex-col"
+            >
+              <div className="flex justify-between items-center px-6 py-4 border-b border-outline-variant/10">
+                <h2 className="font-headline text-lg">Terms & Legal</h2>
+                <button onClick={() => setIsLegalOpen(false)} className="p-2 rounded-full hover:bg-surface-container">
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <LegalPage />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -356,15 +613,16 @@ export default function App() {
       {/* Header */}
       <header className="fixed top-0 z-50 w-full bg-background/80 backdrop-blur-md border-b border-outline-variant/10 px-6 py-4">
         <div className="flex justify-between items-center">
-          <div className="flex flex-col items-start">
-            <span className="font-signature text-2xl leading-none shiny-gold drop-shadow-sm">
-              Aditi Nirvaan
-            </span>
-            <span className="font-label text-[10px] uppercase tracking-[0.5em] text-black mt-1">Sanctuary</span>
+          <div className="flex items-center">
+            <img
+              src="/navlogo.png"
+              alt="Aditi Nirvaan Sanctuary"
+              className="h-10 w-auto object-contain"
+            />
           </div>
 
           <div className="flex items-center gap-3">
-            {showInstallButton && (
+            {showInstallButton && !isAppInstalled && (
               <button
                 onClick={handleInstallClick}
                 className="flex items-center gap-1.5 bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-full hover:bg-primary/20 transition-colors font-label text-[10px] uppercase tracking-widest font-bold"
@@ -401,7 +659,7 @@ export default function App() {
             </p>
             <p className="font-label text-[10px] uppercase tracking-[0.3em] text-outline mt-6 opacity-60">— Sanctuary Wisdom</p>
           </div>
-          
+
           <div className="mt-12 text-center space-y-4">
             <p className="font-label text-[9px] uppercase tracking-[0.4em] text-outline/40">
               Self-Protection over Self-Sabotage
@@ -443,7 +701,7 @@ export default function App() {
                   href="https://www.aditinirvaan.com/destiny-map"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-4 bg-primary text-on-primary rounded-xl font-label font-bold uppercase tracking-widest hover:scale-105 transition-transform"
+                  className="flex items-center justify-center gap-2 w-full py-4 btn-aura-gradient rounded-xl font-label font-bold uppercase tracking-widest hover:scale-[1.02] transition-transform"
                 >
                   Upgrade Now
                   <ExternalLink size={16} />
@@ -471,14 +729,16 @@ export default function App() {
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id)}
-            className={`flex flex-col items-center justify-center p-3 transition-all duration-300 active:scale-95 ${
-              activeTab === tab.id 
-                ? 'bg-primary text-on-primary rounded-lg shadow-[inset_2px_2px_4px_rgba(255,255,255,0.2),inset_-2px_-2px_4px_rgba(0,0,0,0.3)]' 
-                : 'text-on-surface/60 hover:text-primary'
-            }`}
+            className={`flex flex-col items-center justify-center p-3 transition-all duration-300 active:scale-95 ${activeTab === tab.id
+              ? 'bg-primary text-on-primary rounded-lg shadow-[inset_2px_2px_4px_rgba(255,255,255,0.2),inset_-2px_-2px_4px_rgba(0,0,0,0.3)]'
+              : 'text-on-surface/60 hover:text-primary'
+              }`}
           >
             <tab.icon size={24} />
-            <span className="font-label text-[10px] uppercase tracking-widest font-bold mt-1">{tab.label}</span>
+            <span className="font-label text-[10px] uppercase tracking-widest font-bold mt-1">
+              {tab.label}
+              {tab.id === 'reset' && !isResetRegistered && <Lock size={10} className="inline ml-1 text-red-500" />}
+            </span>
           </button>
         ))}
       </nav>
@@ -514,7 +774,7 @@ export default function App() {
                     // To be truly professional, we'd use a ref to trigger save.
                     setPendingTab(null);
                   }}
-                  className="w-full py-4 bg-primary text-on-primary rounded-xl font-label font-bold uppercase tracking-widest hover:scale-105 transition-transform"
+                  className="w-full py-4 btn-aura-gradient rounded-xl font-label font-bold uppercase tracking-widest hover:scale-[1.02] transition-transform"
                 >
                   Stay & Save
                 </button>
@@ -539,6 +799,14 @@ export default function App() {
       </AnimatePresence>
 
       <AnalyticsModals type={analyticsType} onClose={() => setAnalyticsType(null)} />
+      <ResetRegisterModal
+        isOpen={showResetRegisterModal}
+        onClose={() => setShowResetRegisterModal(false)}
+        onRegisterSuccess={() => {
+          setIsPlayerOpen(true);
+          load('7-Minute Reset');
+        }}
+      />
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} onOpenLegal={() => setIsLegalOpen(true)} />
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
       <FullScreenPlayer isOpen={isPlayerOpen} onClose={() => { setIsPlayerOpen(false); stop(); }} />

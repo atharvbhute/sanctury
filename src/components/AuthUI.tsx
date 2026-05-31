@@ -16,7 +16,7 @@ export const AuthUI = ({ onOpenProfile }: AuthUIProps) => {
     return (
       <button
         onClick={() => setShowLoginModal(true)}
-        className="font-sans text-xs tracking-[0.25em] uppercase px-5 py-2.5 bg-primary text-on-primary rounded-full font-bold hover:scale-105 transition-all active:scale-95 shadow-lg shadow-primary/20"
+        className="font-sans text-xs tracking-[0.25em] uppercase px-5 py-2.5 btn-aura-gradient rounded-full font-bold hover:scale-105 transition-all active:scale-95"
       >
         Login
       </button>

@@ -2,8 +2,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, TrendingUp, ShieldCheck, Calendar } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
-import { db } from '../firebase';
 
 export const AnalyticsModals = ({ 
   type, 
@@ -12,59 +10,69 @@ export const AnalyticsModals = ({
   type: 'daily' | 'vagal' | null, 
   onClose: () => void 
 }) => {
-  const { user } = useAuth();
+  const { isLoggedIn, userEmail } = useAuth();
   const [stats, setStats] = useState<any[]>([]);
   const [safetyScore, setSafetyScore] = useState(0);
 
   useEffect(() => {
-    if (!user || !type) return;
+    if (!isLoggedIn || !userEmail || !type) return;
 
     const fetchData = async () => {
-      if (type === 'daily') {
-        const q = query(
-          collection(db, 'user_progress'),
-          where('uid', '==', user.uid),
-          orderBy('completedAt', 'desc'),
-          limit(50)
-        );
-        const snap = await getDocs(q);
-        const data = snap.docs.map(d => d.data());
-        
-        // Group by day for last 7 days
-        const last7Days = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          return d.toISOString().split('T')[0];
-        }).reverse();
+      try {
+        const token = localStorage.getItem('sanctuary-lms-token');
+        if (!token) return;
 
-        const counts = last7Days.map(day => {
-          return data.filter(entry => {
-            const entryDate = entry.completedAt?.toDate().toISOString().split('T')[0];
-            return entryDate === day;
-          }).length;
-        });
+        if (type === 'daily') {
+          const res = await fetch('/api/user-progress', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (res.ok) {
+            const resData = await res.json();
+            const data = resData.data;
+            
+            // Group by day for last 7 days
+            const last7Days = Array.from({ length: 7 }, (_, i) => {
+              const d = new Date();
+              d.setDate(d.getDate() - i);
+              return d.toISOString().split('T')[0];
+            }).reverse();
 
-        setStats(counts.map((count, i) => ({ day: last7Days[i].split('-')[2], count })));
-      } else {
-        // Vagal Tone / Safety Score
-        const startOfMonth = new Date();
-        startOfMonth.setDate(1);
-        startOfMonth.setHours(0,0,0,0);
+            const counts = last7Days.map(day => {
+              return data.filter((entry: any) => {
+                const entryDate = new Date(entry.completedAt).toISOString().split('T')[0];
+                return entryDate === day;
+              }).length;
+            });
 
-        const q = query(
-          collection(db, 'user_progress'),
-          where('uid', '==', user.uid),
-          where('completedAt', '>=', startOfMonth)
-        );
-        const snap = await getDocs(q);
-        const count = snap.size;
-        // Score logic: 10 resets = 100% safety
-        setSafetyScore(Math.min(100, count * 10));
+            setStats(counts.map((count, i) => ({ day: last7Days[i].split('-')[2], count })));
+          }
+        } else {
+          // Vagal Tone / Safety Score
+          const startOfMonth = new Date();
+          startOfMonth.setDate(1);
+          startOfMonth.setHours(0,0,0,0);
+
+          const res = await fetch(`/api/user-progress?since=${startOfMonth.toISOString()}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (res.ok) {
+            const resData = await res.json();
+            const count = resData.data.length;
+            // Score logic: 10 resets = 100% safety
+            setSafetyScore(Math.min(100, count * 10));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch progress stats via API:', err);
       }
     };
 
     fetchData();
-  }, [user, type]);
+  }, [isLoggedIn, userEmail, type]);
 
   return (
     <AnimatePresence>

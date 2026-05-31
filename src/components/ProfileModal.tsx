@@ -3,8 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, User, Camera, LogOut, Check, AlertCircle } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { GlobalOverlay } from './GlobalOverlay';
-import { db, OperationType, handleFirestoreError } from '../firebase';
-import { updateDoc, doc } from 'firebase/firestore';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -19,7 +17,7 @@ const AVATAR_COLORS = [
 ];
 
 export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
-  const { userEmail, profile, logout } = useAuth();
+  const { userEmail, profile, logout, updateProfile } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -41,15 +39,11 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
     setMessage(null);
 
     try {
-      // Update Firestore
-      const userDocRef = doc(db, 'users', userEmail);
-      await updateDoc(userDocRef, { displayName });
-      
+      await updateProfile({ displayName });
       setMessage({ type: 'success', text: 'Profile updated successfully' });
     } catch (err: any) {
       console.error('Error updating profile:', err);
       setMessage({ type: 'error', text: err.message || 'Failed to update profile' });
-      handleFirestoreError(err, OperationType.UPDATE, `users/${userEmail}`);
     } finally {
       setLoading(false);
     }
@@ -59,8 +53,7 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
     if (!userEmail) return;
     setLoading(true);
     try {
-      const userDocRef = doc(db, 'users', userEmail);
-      await updateDoc(userDocRef, { photoURL: url });
+      await updateProfile({ photoURL: url });
       setMessage({ type: 'success', text: 'Avatar updated' });
     } catch (err: any) {
       setMessage({ type: 'error', text: 'Failed to update avatar' });
@@ -102,7 +95,7 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
               </div>
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 p-2 bg-primary text-on-primary rounded-full shadow-lg hover:scale-110 transition-transform"
+                className="absolute bottom-0 right-0 p-2 btn-aura-gradient rounded-full shadow-lg hover:scale-110 transition-transform"
               >
                 <Camera size={16} />
               </button>
@@ -125,8 +118,7 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
                     const reader = new FileReader();
                     reader.onloadend = async () => {
                       const base64String = reader.result as string;
-                      const userDocRef = doc(db, 'users', userEmail);
-                      await updateDoc(userDocRef, { photoURL: base64String });
+                      await updateProfile({ photoURL: base64String });
                       setMessage({ type: 'success', text: 'Profile picture updated!' });
                       setLoading(false);
                     };
@@ -175,7 +167,7 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-on-primary rounded-2xl py-3 font-label font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
+              className="w-full btn-aura-gradient rounded-2xl py-3 font-label font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
             >
               {loading ? 'Updating...' : 'Save Changes'}
             </button>
