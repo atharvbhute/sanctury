@@ -3,14 +3,14 @@ import { useMediaPlayer } from '../MediaPlayerContext';
 import { Wind, Heart, Zap, Cloud, Droplets } from 'lucide-react';
 
 const ORGANS = [
-  { name: 'Liver', element: 'Wood', sound: 'SHHHH', icon: Wind, color: '#F2CA50' },
-  { name: 'Heart', element: 'Fire', sound: 'HAWWW', icon: Heart, color: '#ef4444' },
-  { name: 'Spleen', element: 'Earth', sound: 'WHOOO', icon: Zap, color: '#fbbf24' },
-  { name: 'Lungs', element: 'Metal', sound: 'SSSSS', icon: Cloud, color: '#94a3b8' },
-  { name: 'Kidneys', element: 'Water', sound: 'CHOOO', icon: Droplets, color: '#3b82f6' },
+  { name: 'Liver', element: 'Wood', sound: 'SHHHH', icon: Wind, color: '#F2CA50', url: 'https://pub-4175063e065d455e8dfeafa58c6df57b.r2.dev/organ%20sounds/Liver%20Organ%20Sound.mp3' },
+  { name: 'Heart', element: 'Fire', sound: 'HAWWW', icon: Heart, color: '#ef4444', url: 'https://pub-4175063e065d455e8dfeafa58c6df57b.r2.dev/organ%20sounds/Heart%20Organ%20Sound.mp3' },
+  { name: 'Spleen', element: 'Earth', sound: 'WHOOO', icon: Zap, color: '#fbbf24', url: 'https://pub-4175063e065d455e8dfeafa58c6df57b.r2.dev/organ%20sounds/Spleen%20Organ%20Sound.mp3' },
+  { name: 'Lungs', element: 'Metal', sound: 'SSSSS', icon: Cloud, color: '#94a3b8', url: 'https://pub-4175063e065d455e8dfeafa58c6df57b.r2.dev/organ%20sounds/Lung%20Organ%20Sound.mp3' },
+  { name: 'Kidneys', element: 'Water', sound: 'CHOOO', icon: Droplets, color: '#3b82f6', url: 'https://pub-4175063e065d455e8dfeafa58c6df57b.r2.dev/organ%20sounds/Kidney%20Organ%20Sound.mp3' },
 ];
 
-export const SoundsPage = ({ onOpenPlayer }: { onOpenPlayer: (track: string) => void }) => {
+export const SoundsPage = ({ onOpenPlayer }: { onOpenPlayer: (track: string, url: string) => void }) => {
   return (
     <div className="space-y-12 pb-20">
       <section className="bg-white/50 backdrop-blur-sm p-8 rounded-3xl border border-outline-variant/5">
@@ -28,7 +28,7 @@ export const SoundsPage = ({ onOpenPlayer }: { onOpenPlayer: (track: string) => 
             key={organ.name}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => onOpenPlayer(organ.name)}
+            onClick={() => onOpenPlayer(organ.name, organ.url)}
             className="bg-white rounded-3xl p-8 flex flex-col justify-between group cursor-pointer border border-outline-variant/10 text-left shadow-sm"
           >
             <div className="flex justify-between items-start">

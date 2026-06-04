@@ -127,7 +127,15 @@ export const MediaPlayerProvider = ({ children }: { children: ReactNode }) => {
       if (currentTrack !== track) {
         setIsLoading(true);
         setCurrentTrack(track);
-        const trackUrl = customUrl || (track === '7-Minute Reset' 
+        const organUrls: { [key: string]: string } = {
+          'Heart': 'https://pub-4175063e065d455e8dfeafa58c6df57b.r2.dev/organ%20sounds/Heart%20Organ%20Sound.mp3',
+          'Kidneys': 'https://pub-4175063e065d455e8dfeafa58c6df57b.r2.dev/organ%20sounds/Kidney%20Organ%20Sound.mp3',
+          'Liver': 'https://pub-4175063e065d455e8dfeafa58c6df57b.r2.dev/organ%20sounds/Liver%20Organ%20Sound.mp3',
+          'Lungs': 'https://pub-4175063e065d455e8dfeafa58c6df57b.r2.dev/organ%20sounds/Lung%20Organ%20Sound.mp3',
+          'Spleen': 'https://pub-4175063e065d455e8dfeafa58c6df57b.r2.dev/organ%20sounds/Spleen%20Organ%20Sound.mp3',
+        };
+
+        const trackUrl = customUrl || organUrls[track] || (track === '7-Minute Reset' 
           ? 'https://dl.dropboxusercontent.com/scl/fi/q49e11bcossocishmcyi1/NeruoSomatic-Breathwork-By-Aditi-Nirvaan-TM.mp3?rlkey=6celm54yag5tiz0hvtpna4faq&raw=1' 
           : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3');
         
