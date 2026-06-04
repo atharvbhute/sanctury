@@ -140,7 +140,6 @@ export const MediaPlayerProvider = ({ children }: { children: ReactNode }) => {
           : 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3');
         
         audioRef.current.src = trackUrl;
-        audioRef.current.crossOrigin = 'anonymous';
         audioRef.current.load();
         
         await new Promise((resolve, reject) => {
