@@ -498,6 +498,89 @@ export default function App() {
     }
   };
 
+  const renderIOSInstallOverlay = () => (
+    <GlobalOverlay isOpen={showIOSInstallInstructions} onClose={() => setShowIOSInstallInstructions(false)}>
+      <div className="relative">
+        <button
+          onClick={() => setShowIOSInstallInstructions(false)}
+          className="absolute -top-2 -right-2 p-2 rounded-full hover:bg-gray-100 transition-colors"
+        >
+          <X size={20} className="text-gray-500" />
+        </button>
+
+        <div className="text-center space-y-2 mb-6">
+          <img
+            src="/navlogo.png"
+            alt="Aditi Nirvaan Sanctuary"
+            className="h-10 w-auto mx-auto object-contain mb-4"
+          />
+          <h3 className="font-headline text-2xl text-on-surface font-light">Install Sanctuary</h3>
+          <p className="font-sans text-xs text-gray-500">Add the app to your iPhone or iPad home screen.</p>
+        </div>
+
+        <div className="space-y-6 my-6">
+          {/* Step 1 */}
+          <div className="flex items-start gap-4">
+            <div 
+              className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-label text-xs font-bold text-white"
+              style={{ backgroundColor: activeTheme.hex }}
+            >
+              1
+            </div>
+            <div className="font-sans text-sm text-gray-700 leading-relaxed pt-0.5">
+              Tap the <strong className="text-gray-900 font-semibold">Share</strong> button in your browser.
+              <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5 bg-gray-50 py-1.5 px-3 rounded-lg border border-gray-100">
+                <span>Usually shown as a share icon or</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary inline-block" style={{ color: activeTheme.hex }}><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="flex items-start gap-4">
+            <div 
+              className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-label text-xs font-bold text-white"
+              style={{ backgroundColor: activeTheme.hex }}
+            >
+              2
+            </div>
+            <div className="font-sans text-sm text-gray-700 leading-relaxed pt-0.5">
+              Scroll down and tap <strong className="text-gray-900 font-semibold">"Add to Home Screen"</strong>.
+              <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5 bg-gray-50 py-1.5 px-3 rounded-lg border border-gray-100">
+                <span>Usually shown as a plus symbol</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary inline-block" style={{ color: activeTheme.hex }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="flex items-start gap-4">
+            <div 
+              className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-label text-xs font-bold text-white"
+              style={{ backgroundColor: activeTheme.hex }}
+            >
+              3
+            </div>
+            <div className="font-sans text-sm text-gray-700 leading-relaxed pt-0.5">
+              Tap <strong className="text-gray-900 font-semibold">Add</strong> in the top right corner to confirm.
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setShowIOSInstallInstructions(false)}
+          className="w-full py-4 text-white rounded-2xl font-label font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md mt-2 cursor-pointer"
+          style={{ 
+            backgroundColor: activeTheme.hex,
+            boxShadow: `0 4px 12px ${activeTheme.hex}44`
+          }}
+        >
+          Got It
+        </button>
+      </div>
+    </GlobalOverlay>
+  );
+
   if (loading || isCheckingQuiz) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center relative">
@@ -620,6 +703,7 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
+        {renderIOSInstallOverlay()}
       </div>
     );
   }
@@ -815,86 +899,7 @@ export default function App() {
       </AnimatePresence>
 
       <AnalyticsModals type={analyticsType} onClose={() => setAnalyticsType(null)} />
-      <GlobalOverlay isOpen={showIOSInstallInstructions} onClose={() => setShowIOSInstallInstructions(false)}>
-        <div className="relative">
-          <button
-            onClick={() => setShowIOSInstallInstructions(false)}
-            className="absolute -top-2 -right-2 p-2 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <X size={20} className="text-gray-500" />
-          </button>
-
-          <div className="text-center space-y-2 mb-6">
-            <img
-              src="/navlogo.png"
-              alt="Aditi Nirvaan Sanctuary"
-              className="h-10 w-auto mx-auto object-contain mb-4"
-            />
-            <h3 className="font-headline text-2xl text-on-surface font-light">Install Sanctuary</h3>
-            <p className="font-sans text-xs text-gray-500">Add the app to your iPhone or iPad home screen.</p>
-          </div>
-
-          <div className="space-y-6 my-6">
-            {/* Step 1 */}
-            <div className="flex items-start gap-4">
-              <div 
-                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-label text-xs font-bold text-white"
-                style={{ backgroundColor: activeTheme.hex }}
-              >
-                1
-              </div>
-              <div className="font-sans text-sm text-gray-700 leading-relaxed pt-0.5">
-                Tap the <strong className="text-gray-900 font-semibold">Share</strong> button in your browser.
-                <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5 bg-gray-50 py-1.5 px-3 rounded-lg border border-gray-100">
-                  <span>Usually shown as a share icon or</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary inline-block" style={{ color: activeTheme.hex }}><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="flex items-start gap-4">
-              <div 
-                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-label text-xs font-bold text-white"
-                style={{ backgroundColor: activeTheme.hex }}
-              >
-                2
-              </div>
-              <div className="font-sans text-sm text-gray-700 leading-relaxed pt-0.5">
-                Scroll down and tap <strong className="text-gray-900 font-semibold">"Add to Home Screen"</strong>.
-                <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5 bg-gray-50 py-1.5 px-3 rounded-lg border border-gray-100">
-                  <span>Usually shown as a plus symbol</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary inline-block" style={{ color: activeTheme.hex }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="flex items-start gap-4">
-              <div 
-                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 font-label text-xs font-bold text-white"
-                style={{ backgroundColor: activeTheme.hex }}
-              >
-                3
-              </div>
-              <div className="font-sans text-sm text-gray-700 leading-relaxed pt-0.5">
-                Tap <strong className="text-gray-900 font-semibold">Add</strong> in the top right corner to confirm.
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowIOSInstallInstructions(false)}
-            className="w-full py-4 text-white rounded-2xl font-label font-bold uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md mt-2 cursor-pointer"
-            style={{ 
-              backgroundColor: activeTheme.hex,
-              boxShadow: `0 4px 12px ${activeTheme.hex}44`
-            }}
-          >
-            Got It
-          </button>
-        </div>
-      </GlobalOverlay>
+      {renderIOSInstallOverlay()}
       <ResetRegisterModal
         isOpen={showResetRegisterModal}
         onClose={() => setShowResetRegisterModal(false)}
