@@ -4,7 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
-import prisma from "./src/prisma/client";
+import prisma from "./src/prisma/client.js";
 import fs from "fs";
 
 dotenv.config();
