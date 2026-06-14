@@ -164,7 +164,7 @@ async function startServer() {
     try {
       const email = req.user.email.toLowerCase().trim();
       const { since } = req.query;
-      
+
       const whereClause: any = { userEmail: email };
       if (since) {
         whereClause.completedAt = { gte: new Date(since as string) };

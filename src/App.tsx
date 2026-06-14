@@ -196,6 +196,49 @@ export default function App() {
     }
   }, [activeTheme]);
 
+  // Toggle visibility of the Soul Scan / Chat widget based on current screen
+  useEffect(() => {
+    const isHomeScreen = isLoggedIn && activeTab === 'reset';
+    const win = window as any;
+    
+    if (isHomeScreen) {
+      document.body.classList.remove('hide-chat-widget');
+      try {
+        if (win.voiceflow?.chat) win.voiceflow.chat.show();
+        if (win.$crisp) win.$crisp.push(["do", "chat:show"]);
+        if (win.Tawk_API?.showWidget) win.Tawk_API.showWidget();
+      } catch (e) {
+        console.error('Error showing chat widget:', e);
+      }
+    } else {
+      document.body.classList.add('hide-chat-widget');
+      try {
+        if (win.voiceflow?.chat) win.voiceflow.chat.hide();
+        if (win.$crisp) win.$crisp.push(["do", "chat:hide"]);
+        if (win.Tawk_API?.hideWidget) win.Tawk_API.hideWidget();
+      } catch (e) {
+        console.error('Error hiding chat widget:', e);
+      }
+    }
+
+    // Post message to parent page in case of iframe embed
+    try {
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'SANCTUARY_TAB_CHANGE',
+          tab: activeTab,
+          isHomeScreen: isHomeScreen
+        }, '*');
+      }
+    } catch (e) {
+      console.error('Error sending message to parent frame:', e);
+    }
+
+    return () => {
+      document.body.classList.remove('hide-chat-widget');
+    };
+  }, [isLoggedIn, activeTab]);
+
   const handleGlowChange = async (theme: { name: string, color: string, hex: string }) => {
     setTheme(theme);
     if (isLoggedIn && userEmail) {
@@ -282,7 +325,7 @@ export default function App() {
                 <img
                   src="/navlogo.png"
                   alt="Aditi Nirvaan Sanctuary"
-                  className="h-12 w-auto mx-auto object-contain mb-4"
+                  className="w-36 h-auto mx-auto object-contain mb-4"
                 />
                 <h3 className="font-headline text-2xl font-bold text-gray-900 mt-4">Unlock 7-Minute Reset™</h3>
                 <p className="font-body text-xs text-gray-500 leading-relaxed">
@@ -512,7 +555,7 @@ export default function App() {
           <img
             src="/navlogo.png"
             alt="Aditi Nirvaan Sanctuary"
-            className="h-10 w-auto mx-auto object-contain mb-4"
+            className="w-32 h-auto mx-auto object-contain mb-4"
           />
           <h3 className="font-headline text-2xl text-on-surface font-light">Install Sanctuary</h3>
           <p className="font-sans text-xs text-gray-500">Add the app to your iPhone or iPad home screen.</p>
@@ -608,7 +651,7 @@ export default function App() {
             <img
               src="/navlogo.png"
               alt="Aditi Nirvaan Sanctuary"
-              className="h-12 w-auto mx-auto object-contain mb-4"
+              className="w-36 h-auto mx-auto object-contain mb-4"
             />
             <h3 className="font-sans font-medium text-xl text-gray-900 mt-6 block">Welcome to Sanctuary</h3>
             <p className="font-sans text-xs text-gray-500">Please log in with your ANLMS credentials to enter.</p>
@@ -717,7 +760,7 @@ export default function App() {
             <img
               src="/navlogo.png"
               alt="Aditi Nirvaan Sanctuary"
-              className="h-10 w-auto object-contain"
+              className="w-32 h-auto object-contain"
             />
           </div>
 

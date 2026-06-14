@@ -106,3 +106,25 @@
   background: linear-gradient(to right, #DDC48B, #C8A030) !important;
   box-shadow: 0 20px 25px -5px rgba(199, 147, 72, 0.4), 0 8px 10px -6px rgba(199, 147, 72, 0.4) !important;
 }
+
+/* Hide common chat widgets and popups when not on the home screen */
+.hide-chat-widget iframe[src*="voiceflow"],
+.hide-chat-widget #voiceflow-chat,
+.hide-chat-widget #vg-shortcut-co,
+.hide-chat-widget div[class*="voiceflow"],
+.hide-chat-widget .crisp-client,
+.hide-chat-widget #crisp-chatbox,
+.hide-chat-widget .tawk-min-container,
+.hide-chat-widget iframe[title*="chat"],
+.hide-chat-widget iframe[src*="tawk"],
+.hide-chat-widget iframe[src*="crisp"],
+.hide-chat-widget #hubspot-messages-iframe-container,
+.hide-chat-widget .intercom-app,
+.hide-chat-widget .intercom-launcher,
+.hide-chat-widget .intercom-container,
+.hide-chat-widget iframe[name="intercom-messenger-frame"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

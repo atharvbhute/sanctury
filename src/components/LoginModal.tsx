@@ -45,7 +45,7 @@ export const LoginModal = ({ isOpen, onClose, onOpenLegal }: LoginModalProps) =>
           <img 
             src="/navlogo.png" 
             alt="Aditi Nirvaan Sanctuary" 
-            className="h-10 w-auto mx-auto object-contain mb-4"
+            className="w-32 h-auto mx-auto object-contain mb-4"
           />
           <h3 className="font-sans font-medium text-xl text-gray-900">Sanctuary Login</h3>
           <p className="font-sans text-sm text-gray-500">Enter your email to access Sanctuary.</p>
